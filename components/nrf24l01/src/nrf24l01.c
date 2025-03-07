@@ -250,15 +250,23 @@ void nrf24_init() {
     gpio_set_level(PIN_CE, 0);
     gpio_set_level(PIN_CSN, 1);
 
-    // Configuração do NRF24L01
-    // Configuração do NRF24L01
-    nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);
-    nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){0x02}, 1);
-    nrf24_write_register(NRF_REG_RF_SETUP, (uint8_t[]){0x07}, 1);
+    // Reseta STATUS e dá flush nos FIFOs
+    nrf24_write_register(NRF_REG_STATUS, (uint8_t[]){0x70}, 1);
+    nrf24_flush_rx();
+    nrf24_flush_tx();
 
-    nrf24_write_register(NRF_REG_TX_ADDR, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);
-    nrf24_write_register(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);
+    // "When nRF24L01 is in power down mode it must settle for 1.5ms before it can enter the TX or RX modes."
+    vTaskDelay(pdMS_TO_TICKS(1.5));
 
+    // Configuração do NRF24L01
+    nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);     // Escreve no config. Bit PWR_UP = 1, bit PRIM_RX = 0.
+    nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){0x02}, 1);      // Escreve no RF_CH para selecionar o canal 2.
+    nrf24_write_register(NRF_REG_RF_SETUP, (uint8_t[]){0x07}, 1);   // PA Control: Escreve bi RF_SETUP 1Mbps, 0dBM 11.3mA
+
+    nrf24_write_register(NRF_REG_TX_ADDR, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);    // Seta o endereço de TX
+    nrf24_write_register(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE); // Seta o pipe + endereço de RX
+
+    nrf24_write_register(NRF_REG_EN_AA, (uint8_t[]){0x00}, 1);  // Disable AutoACK
 
     ESP_LOGI(TAG, "NRF24L01 INICIALIZADO");
     

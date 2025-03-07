@@ -13,11 +13,11 @@ void app_main() {
 
     while (1) {
 
-        ESP_LOGI(TAG, "📡 Enviando: 12345");
+        ESP_LOGI(TAG, "📡 Enviando: ");
         
         check_status();
 
-        nrf24_send_data((uint8_t *)"12345", 5);
+        nrf24_send_data((uint8_t *)"Test", 5);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
 

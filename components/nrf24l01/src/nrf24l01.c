@@ -1,0 +1,265 @@
+#include "nrf24l01.h"
+#include "esp_log.h"
+#include "rom/ets_sys.h"
+
+#define TX_ADDR_SIZE 5
+
+// Tag para usar em logs de debug
+static const char *TAG = "NRF24";
+
+// Barramento SPI da ESP32 e configurações (pinos e afins)
+spi_device_handle_t spi;
+
+/**
+ * @brief Essa função escreve nos registradores do módulo NRF usando comunicação SPI. Escrever em certos registradores configura modo, canal e potência.
+ * A operação OR faz com que os bits de comando de write (3 primeiros) sejam juntados com os bits 
+ * que especificam o registrador a ser usado (5 últimos bits), totalizando 8 bits a serem enviados via SPI, com os outros 8 sendo o novo valor.
+ * 
+ * @param reg Registrador a ser escrito
+ * @param value Valores a serem escrito no registrador
+ */
+void nrf24_write_register(uint8_t reg, const uint8_t *value, size_t size) {
+
+    uint8_t write_reg = NRF_CMD_W_REGISTER | reg;
+
+    gpio_set_level(PIN_CSN, 0);
+
+    spi_transaction_t reg_cmd = {
+        .length = 8, 
+        .tx_buffer = &write_reg,
+    };
+    spi_device_transmit(spi, &reg_cmd);
+
+    spi_transaction_t data = {
+        .length = size * 8,
+        .tx_buffer = value,
+    };
+    spi_device_transmit(spi, &data);
+
+    gpio_set_level(PIN_CSN, 1);
+
+}
+
+/**
+ * @brief Função para envio e transmissão de dados.
+ * 
+ * @param data 
+ * @param len 
+ */
+void nrf24_send_data(uint8_t *data, size_t len) {
+
+    if (len > 32) {
+        len = 32;
+    }
+
+    // Every new command must be started by a high to low transition on CSN.
+    // CSN para 0, envio de comando de TX, envio de dados. CSN para 1, fim.
+    gpio_set_level(PIN_CSN, 0);
+
+    uint8_t cmd = NRF_CMD_W_TX_PAYLOAD;
+
+    // Comando TX
+    spi_transaction_t t_cmd = {
+        .length = 8,
+        .tx_buffer = &cmd
+    };
+    spi_device_transmit(spi, &t_cmd);
+    
+    // Dados a serem enviados
+    spi_transaction_t t_data = {
+        .length = len * 8,
+        .tx_buffer = data
+    };
+    spi_device_transmit(spi, &t_data);
+
+    gpio_set_level(PIN_CSN, 1); // Fim TX
+
+    // Datasheet exige no mínimo 10µs para iniciar a transmissão com CE = 1 (envia). CE = 0 volta pro standby.
+    gpio_set_level(PIN_CE, 1);
+    ets_delay_us(10);
+    gpio_set_level(PIN_CE, 0);
+
+    ESP_LOGI(TAG, "DADOS ENVIADOS VIA SPI");
+
+}
+
+/**
+ * @brief Função para receber dados via SPI e armazená-los em um buffer.
+ * 
+ * @param buffer 
+ * @param len 
+ * @return uint8_t 
+ */
+uint8_t nrf24_receive_data(uint8_t *buffer, size_t len) {   // Lógica similar a transferência de dados
+
+    if (len > 32) {
+        len = 32;
+    }
+
+    gpio_set_level(PIN_CSN, 0);
+
+    uint8_t cmd = NRF_CMD_R_RX_PAYLOAD;
+    spi_transaction_t t_cmd = {
+        .length = 8,
+        .tx_buffer = &cmd
+    };
+    spi_device_transmit(spi, &t_cmd);
+
+    spi_transaction_t t_data = {
+        .length = 8,
+        .rx_buffer = buffer
+    };
+    spi_device_transmit(spi, &t_data);
+
+    gpio_set_level(PIN_CSN, 1);
+
+    return buffer[0];   // retorna apenas primeiro byte pra checagem
+
+}
+
+/**
+ * @brief Função que checa se o buffer FIFO TX do NRF24L01 está cheio. 
+ * 
+ * @return true 
+ * @return false 
+ */
+bool nrf24_tx_fifo_full() {
+
+    uint8_t status;
+    uint8_t cmd = NRF_REG_STATUS;
+
+    gpio_set_level(PIN_CSN, 0);
+
+    // Manda transação SPI para 
+    spi_transaction_t t = {
+        .length = 8,
+        .tx_buffer = &cmd, // registrador STATUS
+        .rx_buffer = &status
+    };
+    spi_device_transmit(spi, &t);
+
+    gpio_set_level(PIN_CSN, 1);
+
+    // Extrai o primeiro bit. Se for igual a 1, retorna true (full). Se for 0, retorna false.
+    return status & 1;
+
+}
+
+/**
+ * @brief Função que dá flush no FIFO de TX.
+ * 
+ */
+void nrf24_flush_tx() {
+
+    gpio_set_level(PIN_CSN, 0);
+    uint8_t cmd = NRF_CMD_FLUSH_TX;
+    spi_transaction_t t = {
+        .length = 8,
+        .tx_buffer = &cmd
+    };
+    spi_device_transmit(spi, &t);
+    gpio_set_level(PIN_CSN, 1);
+
+    ESP_LOGI(TAG, "FLUSHED TX FIFO");
+
+}
+
+/**
+ * @brief Função que dá flush no FIFO de RX.
+ * 
+ */
+void nrf24_flush_rx() {
+
+    gpio_set_level(PIN_CSN, 0);
+    uint8_t cmd = NRF_CMD_FLUSH_RX;
+    spi_transaction_t t = {
+        .length = 8,
+        .tx_buffer = &cmd
+    };
+    spi_device_transmit(spi, &t);
+    gpio_set_level(PIN_CSN, 1);
+
+    ESP_LOGI(TAG, "FLUSHED RX FIFO");
+
+}
+
+/**
+ * @brief Retorna o conteúdo armazenado no registrador especificado.
+ * 
+ * @param reg 
+ * @return uint8_t 
+ */
+uint8_t nrf24_read_register(uint8_t reg) {  // Refatorar depois para ler mais bytes
+
+    uint8_t cmd = NRF_CMD_R_REGISTER | (reg & 0x1F);  // Comando de leitura + endereço do registrador (mask)
+    uint8_t value = 0;  // Armazena o valor lido
+
+    gpio_set_level(PIN_CSN, 0);
+    spi_transaction_t t = {
+        .length = 8,  
+        .tx_buffer = &cmd,
+        .rx_buffer = &value
+    };
+
+    ESP_ERROR_CHECK(spi_device_transmit(spi, &t));  // Envia o comando e lê a resposta
+    gpio_set_level(PIN_CSN, 1);
+
+    return value;  // Retorna o valor do registrador lido
+}
+
+/**
+ * @brief Printa o valor do registrador STATUS
+ * 
+ */
+void check_status() {
+
+    uint8_t status = nrf24_read_register(NRF_REG_STATUS);
+
+    ESP_LOGI("NRF24", "STATUS: 0x%02X", status);
+
+}
+
+
+/**
+ * @brief Função para configurar o barramento SPI da ESP32 e inicializar o NRF24L01.
+ * 
+ */
+void nrf24_init() {
+    
+    // Configuração SPI
+    spi_bus_config_t buscfg = {
+        .miso_io_num = PIN_MISO,
+        .mosi_io_num = PIN_MOSI,
+        .sclk_io_num = PIN_SCK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+    };
+
+    spi_device_interface_config_t devcfg = {
+        .clock_speed_hz = 1000000, // 1MHz
+        .mode = 0, // SPI modo 0
+        .spics_io_num = PIN_CSN,
+        .queue_size = 7
+    };
+
+    ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
+    ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spi));
+
+    gpio_set_direction(PIN_CE, GPIO_MODE_OUTPUT);
+    gpio_set_direction(PIN_CSN, GPIO_MODE_OUTPUT);
+    gpio_set_level(PIN_CE, 0);
+    gpio_set_level(PIN_CSN, 1);
+
+    // Configuração do NRF24L01
+    // Configuração do NRF24L01
+    nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);
+    nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){0x02}, 1);
+    nrf24_write_register(NRF_REG_RF_SETUP, (uint8_t[]){0x07}, 1);
+
+    nrf24_write_register(NRF_REG_TX_ADDR, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);
+    nrf24_write_register(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);
+
+
+    ESP_LOGI(TAG, "NRF24L01 INICIALIZADO");
+    
+}

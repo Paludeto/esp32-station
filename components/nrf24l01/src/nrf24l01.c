@@ -52,6 +52,18 @@ void nrf24_send_data(uint8_t *data, size_t len) {
         len = 32;
     }
 
+    // Mask para pegar valor do quinto bit
+    uint8_t status = nrf24_read_register(0X07);
+    
+    if (status & 0x10) {  // MAX_RT atingido (bit 4 == 1)
+
+        ESP_LOGW(TAG, "MAX_RT atingido! Resetando...");
+
+        nrf24_write_register(0x07, (uint8_t[]){0x10}, 1);
+        nrf24_flush_tx(); 
+
+    }
+
     // Every new command must be started by a high to low transition on CSN.
     // CSN para 0, envio de comando de TX, envio de dados. CSN para 1, fim.
     gpio_set_level(PIN_CSN, 0);
@@ -266,7 +278,7 @@ void nrf24_init() {
     nrf24_write_register(NRF_REG_TX_ADDR, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);    // Seta o endereço de TX
     nrf24_write_register(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE); // Seta o pipe + endereço de RX
 
-    nrf24_write_register(NRF_REG_EN_AA, (uint8_t[]){0x00}, 1);  // Disable AutoACK
+    nrf24_write_register(NRF_REG_EN_AA, (uint8_t[]){0x01}, 1);  // Enable AutoACK, pipe 0 
 
     ESP_LOGI(TAG, "NRF24L01 INICIALIZADO");
     

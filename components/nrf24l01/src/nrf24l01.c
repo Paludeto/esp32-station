@@ -11,25 +11,36 @@ static const char *TAG = "NRF24";
 spi_device_handle_t spi;
 
 /**
- * @brief Essa função escreve nos registradores do módulo NRF usando comunicação SPI. Escrever em certos registradores configura modo, canal e potência.
- * A operação OR faz com que os bits de comando de write (3 primeiros) sejam juntados com os bits 
- * que especificam o registrador a ser usado (5 últimos bits), totalizando 8 bits a serem enviados via SPI, com os outros 8 sendo o novo valor.
+ * @brief Escreve dados em um registrador do módulo NRF24L01 via SPI.
  * 
- * @param reg Registrador a ser escrito
- * @param value Valores a serem escrito no registrador
+ * A operação OR entre o comando NRF_CMD_W_REGISTER e o endereço do registrador gera o byte de comando.
+ * O protocolo SPI espera esse byte seguido dos dados a serem escritos. 
+ * Isso permite escrever múltiplos bytes consecutivos em registradores como TX_ADDR, RX_ADDR_Px, etc.
+ * 
+ * @param reg   Endereço do registrador base (5 bits menos significativos).
+ * @param value Ponteiro para os dados a serem escritos.
+ * @param size  Quantidade de bytes a serem enviados ao registrador.
  */
 void nrf24_write_register(uint8_t reg, const uint8_t *value, size_t size) {
+
+    // Registradores do módulo NRF suportam no máximo 5 bytes
+    if (size > 5) {
+        ESP_LOGW(TAG, "Tamanho de bytes excede o permitido\n");
+        return;
+    }
 
     uint8_t write_reg = NRF_CMD_W_REGISTER | reg;
 
     gpio_set_level(PIN_CSN, 0);
 
+    // Comando de write + registrador
     spi_transaction_t reg_cmd = {
         .length = 8, 
         .tx_buffer = &write_reg,
     };
     spi_device_transmit(spi, &reg_cmd);
 
+    // Dados a serem escritos
     spi_transaction_t data = {
         .length = size * 8,
         .tx_buffer = value,
@@ -52,14 +63,13 @@ void nrf24_send_data(uint8_t *data, size_t len) {
         len = 32;
     }
 
-    // Mask para pegar valor do quinto bit
-    uint8_t status = nrf24_read_register(0X07);
+    uint8_t status = check_status();
     
     if (status & 0x10) {  // MAX_RT atingido (bit 4 == 1)
 
         ESP_LOGW(TAG, "MAX_RT atingido! Resetando...");
 
-        nrf24_write_register(0x07, (uint8_t[]){0x10}, 1);
+        nrf24_write_register(NRF_REG_STATUS, (uint8_t[]){0x10}, 1);
         nrf24_flush_tx(); 
 
     }
@@ -223,14 +233,25 @@ uint8_t nrf24_read_register(uint8_t reg) {  // Refatorar depois para ler mais by
  * @brief Printa o valor do registrador STATUS
  * 
  */
-void check_status() {
+uint8_t nrf24_check_status() {
 
     uint8_t status = nrf24_read_register(NRF_REG_STATUS);
 
     ESP_LOGI("NRF24", "STATUS: 0x%02X", status);
 
+    return status;
+
 }
 
+/**
+ * @brief Reseta o valor do registrador STATUS.
+ * 
+ */
+void nrf24_reset_status() {
+
+    nrf24_write_register(NRF_REG_STATUS, (uint8_t[]){0x70}, 1);
+
+}
 
 /**
  * @brief Função para configurar o barramento SPI da ESP32 e inicializar o NRF24L01.
@@ -238,7 +259,7 @@ void check_status() {
  */
 void nrf24_init() {
     
-    // Configuração SPI
+    // Configuração dos barramentos SPI
     spi_bus_config_t buscfg = {
         .miso_io_num = PIN_MISO,
         .mosi_io_num = PIN_MOSI,
@@ -254,16 +275,18 @@ void nrf24_init() {
         .queue_size = 7
     };
 
+    // Inicialização dos barramentos SPI
     ESP_ERROR_CHECK(spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO));
     ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &spi));
 
+    // Configura os pinos SPI para transmissão de dados
     gpio_set_direction(PIN_CE, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_CSN, GPIO_MODE_OUTPUT);
     gpio_set_level(PIN_CE, 0);
     gpio_set_level(PIN_CSN, 1);
 
     // Reseta STATUS e dá flush nos FIFOs
-    nrf24_write_register(NRF_REG_STATUS, (uint8_t[]){0x70}, 1);
+    nrf24_reset_status();
     nrf24_flush_rx();
     nrf24_flush_tx();
 

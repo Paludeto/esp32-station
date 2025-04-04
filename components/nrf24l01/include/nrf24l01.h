@@ -65,6 +65,8 @@
 
 // **Funções de inicialização e configuração**
 void nrf24_init();
+
+// IMPLEMENTAR
 void nrf24_set_channel(uint8_t channel);
 void nrf24_set_tx_address(const uint8_t *address, uint8_t size);
 void nrf24_set_rx_address(uint8_t pipe, const uint8_t *address, uint8_t size);
@@ -80,7 +82,8 @@ void nrf24_send_data(uint8_t *data, size_t len);
 uint8_t nrf24_receive_data(uint8_t *buffer, size_t len);
 
 // **Funções de verificação e controle**
-void check_status();
+uint8_t nrf24_check_status();
+void nrf24_reset_status();
 bool nrf24_tx_fifo_full();
 void nrf24_flush_tx();
 void nrf24_flush_rx();

@@ -63,7 +63,7 @@ void nrf24_send_data(uint8_t *data, size_t len) {
         len = 32;
     }
 
-    uint8_t status = check_status();
+    uint8_t status = nrf24_check_status();
     
     if (status & 0x10) {  // MAX_RT atingido (bit 4 == 1)
 

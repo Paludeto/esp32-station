@@ -299,28 +299,6 @@ void nrf24_init() {
 
     }
 
-    void nrf24_set_tx_address(const uint8_t *address, uint8_t size){
-        nrf24_write_register(NRF_REG_TX_ADDR, (uint8_t[]){address}, size);    // Seta o endereço de TX
-    }
-
-    void nrf24_set_rx_address(uint8_t pipe, const uint8_t *address, uint8_t size){
-        nrf24_write_register(NRF_REG_RX_ADDR_P0, (uint8_t[]){adress}, size); // Seta o pipe + endereço de RX
- 
-    }
-
-    void nrf24_set_pa_level(uint8_t pa_level){
-        nrf24_write_register(NRF_REG_RF_SETUP, (uint8_t[]){pa_level}, 1);   // PA Control: Escreve bi RF_SETUP 1Mbps, 0dBM 11.3mA
-    }
-
-    void nrf24_enable_auto_ack(bool enable){
-     nrf24_write_register(NRF_REG_EN_AA, (uint8_t[]){0x01}, 1);  // Enable AutoACK, pipe 0 
-
-
-    } 
-
-
-
-
     // Configuração do NRF24L01
     nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);     // Escreve no config. Bit PWR_UP = 1, bit PRIM_RX = 0.
     nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){0x02}, 1);      // Escreve no RF_CH para selecionar o canal 2.

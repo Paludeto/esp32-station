@@ -68,16 +68,16 @@ void nrf24_init();
 
 // IMPLEMENTAR
 void nrf24_set_channel(uint8_t channel);
-void nrf24_set_tx_address(const uint8_t *address, uint8_t size);
-void nrf24_set_rx_address(uint8_t pipe, const uint8_t *address, uint8_t size);
-void nrf24_set_data_rate(uint8_t data_rate);
-void nrf24_set_pa_level(uint8_t pa_level);
-void nrf24_enable_auto_ack(bool enable);
-void nrf24_enable_crc(bool enable);
+void nrf24_set_tx_address(const uint8_t *address);
+void nrf24_set_rx_address(const uint8_t pipe, const uint8_t *address);
+void nrf24_enable_auto_ack(uint8_t pipe, bool enable_ack);
+void nrf24_setup();
+void nrf24_tx_on();
+void nrf24_rx_on();
 
 // **Funções de leitura e escrita**
 void nrf24_write_register(uint8_t reg, const uint8_t *value, size_t size);
-uint8_t nrf24_read_register(uint8_t reg);
+void nrf24_read_register(uint8_t reg, uint8_t *value, size_t size);
 void nrf24_send_data(uint8_t *data, size_t len);
 uint8_t nrf24_receive_data(uint8_t *buffer, size_t len);
 

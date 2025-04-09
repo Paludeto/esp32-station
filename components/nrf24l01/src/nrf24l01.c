@@ -1,6 +1,7 @@
 #include "nrf24l01.h"
 #include "esp_log.h"
 #include "rom/ets_sys.h"
+#include "string.h"
 
 #define TX_ADDR_SIZE 5
 
@@ -211,22 +212,37 @@ void nrf24_flush_rx() {
  * @param reg 
  * @return uint8_t 
  */
-uint8_t nrf24_read_register(uint8_t reg) {  // Refatorar depois para ler mais bytes
+void nrf24_read_register(uint8_t reg, uint8_t *value, size_t size) {
 
-    uint8_t cmd = NRF_CMD_R_REGISTER | (reg & 0x1F);  // Comando de leitura + endereço do registrador (mask)
-    uint8_t value = 0;  // Armazena o valor lido
+    if (size == 0 || size > 5 || value == NULL) {
+        ESP_LOGW(TAG, "Tamanho inválido para leitura\n");
+        return;
+    }
+
+    uint8_t read_reg = NRF_CMD_R_REGISTER | (reg & 0x1F);
 
     gpio_set_level(PIN_CSN, 0);
-    spi_transaction_t t = {
-        .length = 8,  
-        .tx_buffer = &cmd,
-        .rx_buffer = &value
-    };
 
-    ESP_ERROR_CHECK(spi_device_transmit(spi, &t));  // Envia o comando e lê a resposta
+    // Envia comando de leitura
+    spi_transaction_t cmd = {
+        .length = 8,
+        .tx_buffer = &read_reg,
+    };
+    spi_device_transmit(spi, &cmd);
+
+    // Envia dummy bytes e recebe os dados (necessário para comunicação full duplex, precisamos mandar o buffer de TX com "lixo")
+    uint8_t dummy[size];
+    memset(dummy, NRF_CMD_NOP, size);
+
+    spi_transaction_t data = {
+        .length = size * 8,
+        .tx_buffer = dummy,
+        .rx_buffer = value,
+    };
+    spi_device_transmit(spi, &data);
+
     gpio_set_level(PIN_CSN, 1);
 
-    return value;  // Retorna o valor do registrador lido
 }
 
 /**
@@ -235,7 +251,9 @@ uint8_t nrf24_read_register(uint8_t reg) {  // Refatorar depois para ler mais by
  */
 uint8_t nrf24_check_status() {
 
-    uint8_t status = nrf24_read_register(NRF_REG_STATUS);
+    uint8_t status;
+
+    nrf24_read_register(NRF_REG_STATUS, &status, 1);
 
     ESP_LOGI("NRF24", "STATUS: 0x%02X", status);
 
@@ -250,6 +268,101 @@ uint8_t nrf24_check_status() {
 void nrf24_reset_status() {
 
     nrf24_write_register(NRF_REG_STATUS, (uint8_t[]){0x70}, 1);
+
+}
+
+/**
+ * @brief Escreve no config. Bit PRIM_RX = 0. Coloca o NRF24L01 em modo TX.
+ * EN_CRC 1 => CRC habilitado	
+ * CRCO	  1 => CRC de 2 bytes	
+ * PWR_UP 1 => Módulo ligado (ativo)
+ * 
+ */
+void nrf24_tx_on() {
+
+    nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);
+
+}
+
+/**
+ * @brief Escreve no config. Bit PRIM_RX = 1. Coloca o NRF24L01 em modo RX.
+ * EN_CRC 1 => CRC habilitado	
+ * CRCO	  1 => CRC de 2 bytes	
+ * PWR_UP 1 => Módulo ligado (ativo)
+ * 
+ */
+void nrf24_rx_on() {
+
+    nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0F}, 1);
+
+}
+
+/**
+ * @brief Seleciona o canal de RF.
+ * 
+ * @param channel 
+ */
+void nrf24_set_channel(uint8_t channel) {   
+
+    nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){channel}, 1);      // Escreve no RF_CH para selecionar o canal.
+
+}
+
+/**
+ * @brief Escreve no registrador RF_SETUP, configura air data rate e potência do sinal. 
+ *  Escreve bi RF_SETUP 1Mbps, 0dBM 11.3mA fixo até agora, mas podemos criar um enum para melhorar isso
+ * 
+ */
+void nrf24_setup() {
+
+    // Pode virar um enum depois com modos de operação predefinidos -> elimina números mágicos
+    nrf24_write_register(NRF_REG_RF_SETUP, (uint8_t[]){0x07}, 1);   // PA Control: 
+
+}
+
+/**
+ * @brief Seta o endereço de TX.
+ * 
+ * @param address 
+ */
+void nrf24_set_tx_address(const uint8_t *address) {
+
+    nrf24_write_register(NRF_REG_TX_ADDR, address, TX_ADDR_SIZE); // Endereço de TX
+
+}
+
+/**
+ * @brief Seta o pipe + endereço de RX.
+ * 
+ * @param pipe 
+ * @param address 
+ */
+void nrf24_set_rx_address(const uint8_t pipe, const uint8_t *address) {
+
+    nrf24_write_register(pipe, address, TX_ADDR_SIZE); // Seta o pipe + endereço de RX
+
+}
+
+/**
+ * @brief Habilita auto-acknowledgment em um pipe, que vai de 0 a 5.
+ * 
+ * @param pipe
+ * @param enable_ack 
+ */
+void nrf24_enable_auto_ack(uint8_t pipe, bool enable_ack) {
+
+    if (pipe > 5) return;  // pipe válido: 0 a 5
+
+    uint8_t en_aa;
+    nrf24_read_register(NRF_REG_EN_AA, &en_aa, 1);  // lê o valor atual
+
+    if (enable_ack) {
+        en_aa |= (1 << pipe);   // seta o bit do pipe
+    } else {
+        en_aa &= ~(1 << pipe);  // limpa o bit do pipe
+    }
+
+    nrf24_write_register(NRF_REG_EN_AA, &en_aa, 1);  // escreve de volta
 
 }
 
@@ -294,14 +407,12 @@ void nrf24_init() {
     vTaskDelay(pdMS_TO_TICKS(1.5));
 
     // Configuração do NRF24L01
-    nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);     // Escreve no config. Bit PWR_UP = 1, bit PRIM_RX = 0.
-    nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){0x02}, 1);      // Escreve no RF_CH para selecionar o canal 2.
-    nrf24_write_register(NRF_REG_RF_SETUP, (uint8_t[]){0x07}, 1);   // PA Control: Escreve bi RF_SETUP 1Mbps, 0dBM 11.3mA
-
-    nrf24_write_register(NRF_REG_TX_ADDR, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE);    // Seta o endereço de TX
-    nrf24_write_register(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1}, TX_ADDR_SIZE); // Seta o pipe + endereço de RX
-
-    nrf24_write_register(NRF_REG_EN_AA, (uint8_t[]){0x01}, 1);  // Enable AutoACK, pipe 0 
+    nrf24_tx_on();
+    nrf24_set_channel(2);
+    nrf24_setup();
+    nrf24_set_tx_address((uint8_t[]){0, 0, 0, 0, 1});
+    nrf24_set_rx_address(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1});
+    nrf24_enable_auto_ack(0, true);
 
     ESP_LOGI(TAG, "NRF24L01 INICIALIZADO");
     

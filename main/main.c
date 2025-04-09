@@ -13,8 +13,8 @@ void app_main() {
     
     // Configuração do NRF24L01
     nrf24_tx_on();
-    nrf24_set_channel(2);
     nrf24_setup();
+    nrf24_set_channel(2);
     nrf24_set_tx_address((uint8_t[]){0, 0, 0, 0, 1});
     nrf24_set_rx_address(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1});
     nrf24_enable_auto_ack(0, true);

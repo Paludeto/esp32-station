@@ -53,6 +53,45 @@ void nrf24_write_register(uint8_t reg, const uint8_t *value, size_t size) {
 }
 
 /**
+ * @brief Retorna o conteúdo armazenado no registrador especificado. Pode receber size bytes e armazená-los em value.
+ * 
+ * @param reg 
+ * @return uint8_t 
+ */
+void nrf24_read_register(uint8_t reg, uint8_t *value, size_t size) {
+
+    if (size == 0 || size > 5 || value == NULL) {
+        ESP_LOGW(TAG, "Tamanho inválido para leitura\n");
+        return;
+    }
+
+    uint8_t read_reg = NRF_CMD_R_REGISTER | (reg & 0x1F);
+
+    gpio_set_level(PIN_CSN, 0);
+
+    // Envia comando de leitura
+    spi_transaction_t cmd = {
+        .length = 8,
+        .tx_buffer = &read_reg,
+    };
+    spi_device_transmit(spi, &cmd);
+
+    // Envia dummy bytes e recebe os dados (necessário para comunicação full duplex, precisamos mandar o buffer de TX com "lixo")
+    uint8_t dummy[size];
+    memset(dummy, NRF_CMD_NOP, size);
+
+    spi_transaction_t data = {
+        .length = size * 8,
+        .tx_buffer = dummy,
+        .rx_buffer = value,
+    };
+    spi_device_transmit(spi, &data);
+
+    gpio_set_level(PIN_CSN, 1);
+
+}
+
+/**
  * @brief Função para envio e transmissão de dados.
  * 
  * @param data 
@@ -203,45 +242,6 @@ void nrf24_flush_rx() {
     gpio_set_level(PIN_CSN, 1);
 
     ESP_LOGI(TAG, "FLUSHED RX FIFO");
-
-}
-
-/**
- * @brief Retorna o conteúdo armazenado no registrador especificado.
- * 
- * @param reg 
- * @return uint8_t 
- */
-void nrf24_read_register(uint8_t reg, uint8_t *value, size_t size) {
-
-    if (size == 0 || size > 5 || value == NULL) {
-        ESP_LOGW(TAG, "Tamanho inválido para leitura\n");
-        return;
-    }
-
-    uint8_t read_reg = NRF_CMD_R_REGISTER | (reg & 0x1F);
-
-    gpio_set_level(PIN_CSN, 0);
-
-    // Envia comando de leitura
-    spi_transaction_t cmd = {
-        .length = 8,
-        .tx_buffer = &read_reg,
-    };
-    spi_device_transmit(spi, &cmd);
-
-    // Envia dummy bytes e recebe os dados (necessário para comunicação full duplex, precisamos mandar o buffer de TX com "lixo")
-    uint8_t dummy[size];
-    memset(dummy, NRF_CMD_NOP, size);
-
-    spi_transaction_t data = {
-        .length = size * 8,
-        .tx_buffer = dummy,
-        .rx_buffer = value,
-    };
-    spi_device_transmit(spi, &data);
-
-    gpio_set_level(PIN_CSN, 1);
 
 }
 

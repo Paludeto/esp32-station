@@ -293,12 +293,6 @@ void nrf24_init() {
     // "When nRF24L01 is in power down mode it must settle for 1.5ms before it can enter the TX or RX modes."
     vTaskDelay(pdMS_TO_TICKS(1.5));
 
-    void nrf24_set_channel(uint8_t channel){
-
-    nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){channel}, 1); 
-
-    }
-
     // Configuração do NRF24L01
     nrf24_write_register(NRF_REG_CONFIG, (uint8_t[]){0x0E}, 1);     // Escreve no config. Bit PWR_UP = 1, bit PRIM_RX = 0.
     nrf24_write_register(NRF_REG_RF_CH, (uint8_t[]){0x02}, 1);      // Escreve no RF_CH para selecionar o canal 2.

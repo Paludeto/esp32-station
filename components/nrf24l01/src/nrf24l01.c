@@ -406,14 +406,6 @@ void nrf24_init() {
     // "When nRF24L01 is in power down mode it must settle for 1.5ms before it can enter the TX or RX modes."
     vTaskDelay(pdMS_TO_TICKS(1.5));
 
-    // Configuração do NRF24L01
-    nrf24_tx_on();
-    nrf24_set_channel(2);
-    nrf24_setup();
-    nrf24_set_tx_address((uint8_t[]){0, 0, 0, 0, 1});
-    nrf24_set_rx_address(NRF_REG_RX_ADDR_P0, (uint8_t[]){0, 0, 0, 0, 1});
-    nrf24_enable_auto_ack(0, true);
-
     ESP_LOGI(TAG, "NRF24L01 INICIALIZADO");
     
 }

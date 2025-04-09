@@ -66,7 +66,7 @@ void nrf24_send_data(uint8_t *data, size_t len) {
 
     uint8_t status = nrf24_check_status();
     
-    if (status & 0x10) {  // MAX_RT atingido (bit 4 == 1)
+    if (status & NRF_STATUS_MAX_RT) {  // MAX_RT atingido (bit 4 == 1)
 
         ESP_LOGW(TAG, "MAX_RT atingido! Resetando...");
 

@@ -1,0 +1,109 @@
+menu "ESP32 Station (nRF24L01+) Configuration"
+
+    choice STATION_MODE
+        prompt "Modo de operacao da estacao"
+        default STATION_MODE_TX_INTERACTIVE
+        help
+            Selecione o papel desta placa ESP32 na comunicacao RF com o nRF24L01+.
+
+        config STATION_MODE_TX_INTERACTIVE
+            bool "TX Interativo (Console UART + Scanner RF)"
+            help
+                Permite enviar comandos RC (W/A/S/D/X), executar ping de latencia,
+                inspecionar registradores e escanear canais 2.4 GHz via monitor serial.
+
+        config STATION_MODE_TX_BEACON
+            bool "TX Beacon Periodico (Telemetria / Teste de Enlace)"
+            help
+                Envia pacotes estruturados periodicamente e exibe estatisticas de entrega.
+
+        config STATION_MODE_RX_MONITOR
+            bool "RX Receptor / Monitor de Pacotes"
+            help
+                Escuta o pipe 0, valida CRC-8 e exibe todos os pacotes recebidos.
+    endchoice
+
+    menu "Pinagem SPI e Controle (GPIO)"
+        config STATION_PIN_CE
+            int "Pino CE (Chip Enable)"
+            default 4
+            range 0 39
+
+        config STATION_PIN_CSN
+            int "Pino CSN (SPI Chip Select)"
+            default 5
+            range 0 39
+
+        config STATION_PIN_MISO
+            int "Pino MISO"
+            default 19
+            range 0 39
+
+        config STATION_PIN_MOSI
+            int "Pino MOSI"
+            default 23
+            range 0 39
+
+        config STATION_PIN_SCK
+            int "Pino SCK (SPI Clock)"
+            default 18
+            range 0 39
+
+        config STATION_PIN_IRQ
+            int "Pino IRQ (-1 para desabilitar)"
+            default -1
+            range -1 39
+    endmenu
+
+    menu "Parametros de Radio (RF)"
+        config STATION_RF_CHANNEL
+            int "Canal RF (0..125 -> 2400..2525 MHz)"
+            default 2
+            range 0 125
+            help
+                Canal de operacao do nRF24L01+. Padrao 2 (2402 MHz) para compatibilidade
+                com o protocolo original. Para evitar interferencia de Wi-Fi, considere
+                usar canais entre 76 e 125 (2476..2525 MHz).
+
+        choice STATION_DATA_RATE
+            prompt "Taxa de transmissao (Air Data Rate)"
+            default STATION_DR_1MBPS
+
+            config STATION_DR_250KBPS
+                bool "250 kbps (maior alcance)"
+
+            config STATION_DR_1MBPS
+                bool "1 Mbps (equilibrado)"
+
+            config STATION_DR_2MBPS
+                bool "2 Mbps (menor latencia)"
+        endchoice
+
+        choice STATION_PA_LEVEL
+            prompt "Potencia de saida (PA Level)"
+            default STATION_PA_MAX
+
+            config STATION_PA_MIN
+                bool "-18 dBm (minima)"
+
+            config STATION_PA_LOW
+                bool "-12 dBm (baixa)"
+
+            config STATION_PA_HIGH
+                bool "-6 dBm (alta)"
+
+            config STATION_PA_MAX
+                bool "0 dBm (maxima)"
+        endchoice
+
+        config STATION_AUTO_ACK
+            bool "Habilitar Auto-ACK (Enhanced ShockBurst)"
+            default y
+
+        config STATION_TX_INTERVAL_MS
+            int "Intervalo de transmissao no modo Beacon (ms)"
+            default 250
+            range 20 10000
+    endmenu
+
+endmenu

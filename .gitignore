@@ -1,8 +1,22 @@
+# ESP-IDF build artifacts
 build/
 sdkconfig
 sdkconfig.old
-build/
+managed_components/
+dependencies.lock
+
+# Host unit tests build artifacts
+test/build/
+
+# Logs and compiled binaries
 *.log
 *.bin
+*.elf
+*.map
 *.o
+*.exe
+
+# IDE / OS files
 .vscode/
+.DS_Store
+Thumbs.db

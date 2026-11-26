@@ -100,7 +100,6 @@ Mais detalhes elétricos e mapa completo de registradores em [docs/HARDWARE.md](
 
 ```text
 esp32-station/
-├── .devcontainer/                 # Ambiente Docker pronto com ESP-IDF
 ├── .github/workflows/             # CI automático (compilação estrita + testes unitários)
 ├── components/
 │   └── nrf24l01/
@@ -144,8 +143,7 @@ Selecione o papel da placa em `idf.py menuconfig → ESP32 Station (nRF24L01+) C
 
 ### Pré-requisitos
 
-- **ESP-IDF v5.3 ou superior** instalado localmente, **ou**
-- **VS Code + Dev Containers** (o projeto já inclui `.devcontainer/` baseado em `espressif/idf:latest`).
+- **ESP-IDF v5.3 ou superior** instalado e configurado no ambiente (`idf.py` disponível no PATH).
 
 ### Passo a passo
 

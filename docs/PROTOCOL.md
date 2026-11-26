@@ -1,42 +1,42 @@
-# 📦 Especificação do Protocolo — `station_protocol.h`
+# 📦 Protocol Specification — `station_protocol.h`
 
-> **🇧🇷 Português** · [🇺🇸 English](en/PROTOCOL.md)
+> **🇺🇸 English** · [🇧🇷 Português](pt-BR/PROTOCOL.md)
 
-O firmware utiliza um quadro binário compacto de **8 bytes** ([`main/station_protocol.h`](../main/station_protocol.h)) sobre o protocolo **Enhanced ShockBurst** do nRF24L01+.
+The firmware exchanges a compact **8-byte** binary frame ([`main/station_protocol.h`](../main/station_protocol.h)) over the nRF24L01+ **Enhanced ShockBurst** link layer.
 
 ---
 
-## 1. Estrutura do Pacote (`station_packet_t`)
+## 1. Packet Layout (`station_packet_t`)
 
-| Offset | Campo | Tipo | Tamanho | Descrição |
+| Offset | Field | Type | Size | Description |
 | :---: | :--- | :---: | :---: | :--- |
-| `0` | `magic` | `uint8_t` | 1 byte | Identificador fixo de quadro: **`0xA5`** |
-| `1` | `version` | `uint8_t` | 1 byte | Versão do protocolo: **`0x01`** |
-| `2` | `cmd` | `uint8_t` | 1 byte | Código do comando (`station_cmd_t`) |
-| `3` | `speed` | `uint8_t` | 1 byte | Intensidade / duty-cycle PWM (`0..255`) |
-| `4..5` | `seq` | `uint16_t` | 2 bytes | Contador sequencial *(little-endian)* para detecção de perdas |
-| `6` | `flags` | `uint8_t` | 1 byte | Bits auxiliares reservados para expansões futuras |
-| `7` | `crc8` | `uint8_t` | 1 byte | **CRC-8/SMBUS** (polinômio `0x07`, init `0x00`) sobre os bytes `0..6` |
+| `0` | `magic` | `uint8_t` | 1 byte | Fixed frame sync byte: **`0xA5`** |
+| `1` | `version` | `uint8_t` | 1 byte | Protocol version: **`0x01`** |
+| `2` | `cmd` | `uint8_t` | 1 byte | Command code (`station_cmd_t`) |
+| `3` | `speed` | `uint8_t` | 1 byte | Intensity / PWM duty cycle (`0..255`) |
+| `4..5` | `seq` | `uint16_t` | 2 bytes | Sequential counter *(little-endian)* for packet-loss detection |
+| `6` | `flags` | `uint8_t` | 1 byte | Reserved status/telemetry bitfield for future extensions |
+| `7` | `crc8` | `uint8_t` | 1 byte | **CRC-8/SMBUS** (polynomial `0x07`, init `0x00`) over bytes `0..6` |
 
-> **Tamanho total:** `8 bytes` verificados em tempo de compilação por `_Static_assert(sizeof(station_packet_t) == 8U)`.
+> **Total size:** `8 bytes`, enforced at compile time via `_Static_assert(sizeof(station_packet_t) == 8U)`.
 
 ---
 
-## 2. Tabela de Comandos (`station_cmd_t`)
+## 2. Command Codes (`station_cmd_t`)
 
-| Código (Hex) | Enum | Tecla (Console) | Significado |
+| Code (Hex) | Enum | Console Key | Meaning |
 | :---: | :--- | :---: | :--- |
-| `0x00` | `STATION_CMD_STOP` | `X` | Parada imediata / estado seguro (`speed = 0`) |
-| `0x01` | `STATION_CMD_FORWARD` | `W` | Movimento para frente |
-| `0x02` | `STATION_CMD_BACKWARD` | `S` | Movimento em ré |
-| `0x03` | `STATION_CMD_LEFT` | `A` | Giro à esquerda |
-| `0x04` | `STATION_CMD_RIGHT` | `D` | Giro à direita |
-| `0x10` | `STATION_CMD_PING` | `P` | Teste de conectividade e medição de RTT |
-| `0x20` | `STATION_CMD_BEACON` | *(automático)* | Heartbeat periódico (modo `TX Beacon`) |
+| `0x00` | `STATION_CMD_STOP` | `X` | Immediate stop / safe state (`speed = 0`) |
+| `0x01` | `STATION_CMD_FORWARD` | `W` | Move forward |
+| `0x02` | `STATION_CMD_BACKWARD` | `S` | Move backward / reverse |
+| `0x03` | `STATION_CMD_LEFT` | `A` | Turn left |
+| `0x04` | `STATION_CMD_RIGHT` | `D` | Turn right |
+| `0x10` | `STATION_CMD_PING` | `P` | Connectivity & RTT latency probe |
+| `0x20` | `STATION_CMD_BEACON` | *(automatic)* | Periodic heartbeat (`TX Beacon` mode) |
 
 ---
 
-## 3. Fluxo de Comunicação (Enhanced ShockBurst)
+## 3. Enhanced ShockBurst Communication Flow
 
 ```mermaid
 sequenceDiagram
@@ -44,30 +44,30 @@ sequenceDiagram
     participant TX as ESP32 Station (TX)
     participant RF_TX as nRF24L01+ (TX)
     participant RF_RX as nRF24L01+ (RX)
-    participant RX as Nó Remoto (RX)
+    participant RX as Remote Node (RX)
 
     TX->>TX: station_packet_build() + CRC-8
     TX->>RF_TX: SPI W_TX_PAYLOAD (8 bytes)
-    TX->>RF_TX: Pulso CE >= 15 us
-    RF_TX->>RF_RX: Pacote RF + CRC-16 HW (2.4 GHz)
-    alt Pacote íntegro (CRC-16 válido)
-        RF_RX-->>RF_TX: Auto-ACK automático
+    TX->>RF_TX: CE pulse >= 15 us
+    RF_TX->>RF_RX: RF packet + HW CRC-16 (2.4 GHz)
+    alt Valid packet (HW CRC-16 OK)
+        RF_RX-->>RF_TX: Automatic Auto-ACK
         RF_TX-->>TX: STATUS.TX_DS = 1 (ESP_OK)
         RF_RX-->>RX: STATUS.RX_DR = 1
         RX->>RF_RX: SPI R_RX_PAYLOAD (8 bytes)
         RX->>RX: station_packet_validate() (magic + CRC-8 + seq)
-    else Sem resposta após ARC retransmissões
+    else No ACK after ARC retries
         RF_TX-->>TX: STATUS.MAX_RT = 1
-        TX->>RF_TX: Limpa MAX_RT + FLUSH_TX (retorna ESP_FAIL)
+        TX->>RF_TX: Clear MAX_RT + FLUSH_TX (returns ESP_FAIL)
     end
 ```
 
 ---
 
-## 4. Algoritmo CRC-8/SMBUS
+## 4. CRC-8/SMBUS Checksum
 
-O byte `crc8` garante proteção adicional ponta a ponta (inclusive contra corrupção no barramento SPI):
-- **Polinômio:** $x^8 + x^2 + x + 1$ (`0x07`)
-- **Valor inicial:** `0x00`
-- **Entrada:** bytes `0..6` de `station_packet_t`
-- **Validação:** `station_packet_validate(&pkt)` retorna `true` apenas se `magic == 0xA5`, `version == 0x01` e `crc8 == station_crc8(pkt, 7)`.
+The trailing `crc8` byte provides end-to-end integrity verification (including protection against SPI bus corruption):
+- **Polynomial:** $x^8 + x^2 + x + 1$ (`0x07`)
+- **Initial value:** `0x00`
+- **Input:** bytes `0..6` of `station_packet_t`
+- **Validation:** `station_packet_validate(&pkt)` returns `true` only if `magic == 0xA5`, `version == 0x01`, and `crc8 == station_crc8(pkt, 7)`.

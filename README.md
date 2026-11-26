@@ -1,73 +1,73 @@
-# 📡 ESP32 Station — Driver e Estação RF nRF24L01+
+# 📡 ESP32 Station — nRF24L01+ Driver & RF Base Station
 
 <p align="center">
-  <strong>🇧🇷 Português</strong> · <a href="README.en.md">🇺🇸 English</a>
+  <strong>🇺🇸 English</strong> · <a href="README.pt-BR.md">🇧🇷 Português</a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/ESP--IDF-v5.3%2B-E7352C?style=for-the-badge&logo=espressif&logoColor=white" alt="ESP-IDF v5.3+">
   <img src="https://img.shields.io/badge/MCU-ESP32-1E88E5?style=for-the-badge&logo=espressif&logoColor=white" alt="ESP32">
   <img src="https://img.shields.io/badge/RF-nRF24L01%2B%202.4GHz-00897B?style=for-the-badge" alt="nRF24L01+ 2.4GHz">
-  <img src="https://img.shields.io/badge/Linguagem-C11-555555?style=for-the-badge&logo=c&logoColor=white" alt="C11">
-  <img src="https://img.shields.io/badge/Licen%C3%A7a-MIT-2E7D32?style=for-the-badge" alt="Licença MIT">
+  <img src="https://img.shields.io/badge/Language-C11-555555?style=for-the-badge&logo=c&logoColor=white" alt="C11">
+  <img src="https://img.shields.io/badge/License-MIT-2E7D32?style=for-the-badge" alt="MIT License">
 </p>
 
-> **Estação base sem fio baseada em ESP32 + nRF24L01+ em C (ESP-IDF)** com componente de driver completo, protocolo binário com verificação CRC-8, console serial interativo, scanner de espectro 2.4 GHz e suíte de testes unitários em host.
+> **ESP32 + nRF24L01+ wireless base station firmware in C (ESP-IDF)** featuring a complete datasheet-compliant driver component, a CRC-8 binary framing protocol, an interactive serial console, a 2.4 GHz RF spectrum scanner, and a host-side unit test suite.
 
 ---
 
-## 📑 Índice
+## 📑 Table of Contents
 
-- [Visão Geral](#-visão-geral)
-- [Arquitetura do Sistema](#-arquitetura-do-sistema)
-- [Hardware e Pinagem](#-hardware-e-pinagem)
-- [Estrutura do Repositório](#-estrutura-do-repositório)
-- [Modos de Operação](#-modos-de-operação)
-- [Como Compilar e Gravar](#-como-compilar-e-gravar)
-- [Console Interativo e Scanner RF](#-console-interativo-e-scanner-rf)
-- [Testes Unitários (Host / Mock SPI)](#-testes-unitários-host--mock-spi)
-- [Documentação Técnica Detalhada](#-documentação-técnica-detalhada)
-- [Solução de Problemas (Troubleshooting)](#-solução-de-problemas-troubleshooting)
-- [Licença](#-licença)
-
----
-
-## 🎯 Visão Geral
-
-O **ESP32 Station** é um firmware modular para **ESP-IDF** que implementa:
-
-1. **Driver `nrf24l01` completo e aderente ao datasheet** ([`components/nrf24l01`](components/nrf24l01)):
-   - Transações SPI **únicas full-duplex** com CSN gerenciado por hardware (sem glitches entre comando e payload).
-   - Suporte a **Enhanced ShockBurst** (Auto-ACK, retransmissão configurável, 6 pipes RX, payloads dinâmicos e ACK Payloads).
-   - Enums tipados para taxa de dados (`250 kbps`, `1 Mbps`, `2 Mbps`), potência PA (`-18` a `0 dBm`), CRC e largura de endereço.
-   - Autodiagnóstico de hardware (`nrf24_is_connected`), estatísticas de enlace (`TX_OK`, `MAX_RT`, `TIMEOUT`, `RX`), leitura de `OBSERVE_TX` e detecção de portadora (`RPD`).
-2. **Protocolo de comunicação estruturado** ([`main/station_protocol.h`](main/station_protocol.h)):
-   - Quadros binários fixos de **8 bytes** com cabeçalho (`0xA5`), versionamento, número sequencial (`seq`) para detecção de perda e integridade via **CRC-8/SMBUS**.
-3. **Aplicação configurável via `menuconfig`** ([`main/Kconfig.projbuild`](main/Kconfig.projbuild)):
-   - Três modos prontos para uso: **TX Interativo (RC + Scanner RF)**, **TX Beacon Periódico** e **RX Monitor**.
+- [Overview](#-overview)
+- [System Architecture](#-system-architecture)
+- [Hardware & Pinout](#-hardware--pinout)
+- [Repository Structure](#-repository-structure)
+- [Operating Modes](#-operating-modes)
+- [Build & Flash Guide](#-build--flash-guide)
+- [Interactive Console & RF Scanner](#-interactive-console--rf-scanner)
+- [Unit Tests (Host / Mock SPI)](#-unit-tests-host--mock-spi)
+- [Detailed Technical Documentation](#-detailed-technical-documentation)
+- [Troubleshooting](#-troubleshooting)
+- [License](#-license)
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🎯 Overview
 
-### Enlace Físico e RF
+**ESP32 Station** is a modular **ESP-IDF** firmware that provides:
+
+1. **Complete, datasheet-compliant `nrf24l01` driver component** ([`components/nrf24l01`](components/nrf24l01)):
+   - **Single full-duplex SPI transactions** with hardware-managed `CSN` (no mid-command chip-select glitches).
+   - Full **Enhanced ShockBurst** support (Auto-ACK, configurable retries, 6 RX pipes, dynamic payloads, and ACK payloads).
+   - Strongly typed enums for air data rate (`250 kbps`, `1 Mbps`, `2 Mbps`), PA output power (`-18` to `0 dBm`), hardware CRC, and address width.
+   - Built-in hardware self-check (`nrf24_is_connected`), link statistics (`TX_OK`, `MAX_RT`, `TIMEOUT`, `RX`), `OBSERVE_TX` telemetry, and carrier detection (`RPD`).
+2. **Structured binary communication protocol** ([`main/station_protocol.h`](main/station_protocol.h)):
+   - Compact **8-byte** frames with sync header (`0xA5`), protocol version, sequence counter (`seq`) for loss detection, and **CRC-8/SMBUS** integrity check.
+3. **`menuconfig`-driven application** ([`main/Kconfig.projbuild`](main/Kconfig.projbuild)):
+   - Three ready-to-use modes: **TX Interactive (RC + RF Scanner)**, **TX Periodic Beacon**, and **RX Monitor**.
+
+---
+
+## 🏗️ System Architecture
+
+### Physical & RF Link
 
 ```mermaid
 flowchart LR
-    PC["💻 Terminal Serial\n(UART0 · 115200 bps)"] <--> ESP["🧠 ESP32\n(ESP-IDF / FreeRTOS)"]
-    ESP <-->|"SPI2 (MOSI, MISO, SCK, CSN)\n+ GPIO (CE, IRQ opcional)"| NRF1["📡 nRF24L01+\n(Estação Base)"]
-    NRF1 <-->|"RF 2.4 GHz · Enhanced ShockBurst\nAuto-ACK + CRC-16 HW + CRC-8 App"| NRF2["📡 nRF24L01+\n(Robô / Nó Remoto)"]
-    NRF2 <--> NODE["🤖 Controlador Remoto\n(ESP32 / STM32 / Arduino)"]
+    PC["💻 Serial Terminal\n(UART0 · 115200 bps)"] <--> ESP["🧠 ESP32\n(ESP-IDF / FreeRTOS)"]
+    ESP <-->|"SPI2 (MOSI, MISO, SCK, CSN)\n+ GPIO (CE, optional IRQ)"| NRF1["📡 nRF24L01+\n(Base Station)"]
+    NRF1 <-->|"RF 2.4 GHz · Enhanced ShockBurst\nAuto-ACK + HW CRC-16 + App CRC-8"| NRF2["📡 nRF24L01+\n(Rover / Remote Node)"]
+    NRF2 <--> NODE["🤖 Remote Controller\n(ESP32 / STM32 / Arduino)"]
 ```
 
-### Camadas de Software
+### Software Layers
 
 ```mermaid
 flowchart TD
-    APP["main/main.c\nModos: TX Interativo · TX Beacon · RX Monitor\nConsole UART + Scanner de Espectro 2.4 GHz"]
-    PROTO["main/station_protocol.h\nPacote 8B · Comandos RC · CRC-8/SMBUS"]
-    CFG["main/Kconfig.projbuild\nConfiguração de Pinos, Canal, PA e Taxa via menuconfig"]
-    DRV["components/nrf24l01\nDriver nRF24L01+ (API tipada, TX/RX, DPL, ACK Payload, Diagnóstico)"]
+    APP["main/main.c\nModes: TX Interactive · TX Beacon · RX Monitor\nUART Console + 2.4 GHz Spectrum Scanner"]
+    PROTO["main/station_protocol.h\n8-Byte Packet · RC Commands · CRC-8/SMBUS"]
+    CFG["main/Kconfig.projbuild\nPinout, Channel, PA & Data Rate via menuconfig"]
+    DRV["components/nrf24l01\nnRF24L01+ Driver (Typed API, TX/RX, DPL, ACK Payload, Diagnostics)"]
     IDF["ESP-IDF Drivers\nesp_driver_spi · esp_driver_gpio · esp_driver_uart · esp_timer"]
 
     APP --> PROTO
@@ -78,119 +78,119 @@ flowchart TD
 
 ---
 
-## 🔌 Hardware e Pinagem
+## 🔌 Hardware & Pinout
 
-Pinagem padrão (editável em `idf.py menuconfig → ESP32 Station Configuration → Pinagem SPI`):
+Default wiring (customizable via `idf.py menuconfig → ESP32 Station Configuration → Pinagem SPI`):
 
-| Sinal nRF24L01+ | Pino ESP32 (Padrão) | Função | Observação |
+| nRF24L01+ Pin | Default ESP32 Pin | Function | Notes |
 | :---: | :---: | :--- | :--- |
-| **VCC** | `3V3` | Alimentação 3.3 V | **Nunca ligar em 5 V!** Usar capacitor `10 µF` + `100 nF` próximo ao módulo |
-| **GND** | `GND` | Referência comum | Manter fios curtos |
-| **CE** | `GPIO 4` | Chip Enable (TX/RX) | Controlado via GPIO pelo driver |
-| **CSN** | `GPIO 5` | Chip Select SPI (ativo baixo) | Controlado automaticamente pelo periférico SPI2 |
-| **SCK** | `GPIO 18` | Clock SPI (VSPI/SPI2) | Padrão `1 MHz` (suporta até `10 MHz`) |
-| **MOSI** | `GPIO 23` | Master Out Slave In | Dados ESP32 → nRF24L01+ |
-| **MISO** | `GPIO 19` | Master In Slave Out | Dados nRF24L01+ → ESP32 |
-| **IRQ** | `Não conectado (-1)` | Interrupção (ativo baixo) | Opcional — configurável via `menuconfig` |
+| **VCC** | `3V3` | 3.3 V Power | **Never connect to 5 V!** Place a `10 µF` + `100 nF` decoupling capacitor right at the module |
+| **GND** | `GND` | Common Ground | Keep jumper wires short |
+| **CE** | `GPIO 4` | Chip Enable (TX/RX) | Driven via GPIO by the driver |
+| **CSN** | `GPIO 5` | SPI Chip Select (active low) | Managed automatically by the `SPI2` peripheral |
+| **SCK** | `GPIO 18` | SPI Clock (VSPI/SPI2) | Default `1 MHz` (supports up to `10 MHz`) |
+| **MOSI** | `GPIO 23` | Master Out Slave In | ESP32 → nRF24L01+ data |
+| **MISO** | `GPIO 19` | Master In Slave Out | nRF24L01+ → ESP32 data |
+| **IRQ** | `Unconnected (-1)` | Interrupt (active low) | Optional — configurable via `menuconfig` |
 
 > [!WARNING]
-> **Estabilidade de alimentação:** Módulos nRF24L01+ (especialmente versões com amplificador **PA+LNA**) consomem picos de corrente durante a transmissão que derrubam reguladores 3.3 V fracos. Solde um capacitor eletrolítico de **10 µF** (ou 47 µF) em paralelo com um cerâmico de **100 nF** diretamente nos pinos **VCC** e **GND** do módulo.
+> **Power rail stability:** nRF24L01+ modules (especially **PA+LNA** variants) draw sharp current spikes during transmission that can brown out weak 3.3 V regulators. Solder a **10 µF** (or 47 µF) electrolytic capacitor in parallel with a **100 nF** ceramic capacitor directly across the module's **VCC** and **GND** pins.
 
-Mais detalhes elétricos e mapa completo de registradores em [docs/HARDWARE.md](docs/HARDWARE.md).
+See [docs/HARDWARE.md](docs/HARDWARE.md) for wiring diagrams, SPI timing specs, and the complete register map.
 
 ---
 
-## 📁 Estrutura do Repositório
+## 📁 Repository Structure
 
 ```text
 esp32-station/
-├── .github/workflows/             # CI automático (compilação estrita + testes unitários)
+├── .github/workflows/             # Automated CI (strict C11 build + unit tests)
 ├── components/
 │   └── nrf24l01/
 │       ├── CMakeLists.txt
-│       ├── include/nrf24l01.h     # API pública, enums, structs e mapa de registradores
-│       └── src/nrf24l01.c         # Implementação do driver SPI/RF
+│       ├── include/nrf24l01.h     # Public API, enums, structs & register map
+│       └── src/nrf24l01.c         # SPI/RF driver implementation
 ├── docs/
-│   ├── API.md                     # Referência completa da API do driver (PT-BR)
-│   ├── HARDWARE.md                # Esquema elétrico, timing SPI e registradores (PT-BR)
-│   ├── PROTOCOL.md                # Especificação do protocolo binário e fluxo ESB (PT-BR)
-│   └── en/                        # Documentação completa em inglês (API, HARDWARE, PROTOCOL)
+│   ├── API.md                     # Driver API reference (English)
+│   ├── HARDWARE.md                # Electrical guide, SPI timing & registers (English)
+│   ├── PROTOCOL.md                # Binary protocol & ESB flow (English)
+│   └── pt-BR/                     # Complete Portuguese documentation (API, HARDWARE, PROTOCOL)
 ├── main/
 │   ├── CMakeLists.txt
-│   ├── Kconfig.projbuild          # Menu de configuração (idf.py menuconfig)
-│   ├── station_protocol.h         # Pacote de 8 bytes, comandos e CRC-8
-│   └── main.c                     # Aplicação (TX Interativo, TX Beacon, RX Monitor)
+│   ├── Kconfig.projbuild          # idf.py menuconfig options
+│   ├── station_protocol.h         # 8-byte packet, commands & CRC-8
+│   └── main.c                     # Application (TX Interactive, TX Beacon, RX Monitor)
 ├── test/
-│   ├── Makefile                   # Atalho para executar os testes em host
-│   ├── mocks/                     # Headers mock do ESP-IDF para compilação nativa
-│   ├── mock_nrf24_hw.h/.c         # Simulador stateful de hardware nRF24L01+
-│   └── test_nrf24l01.c            # Suíte de testes unitários (driver + protocolo)
+│   ├── Makefile                   # One-command host unit test runner
+│   ├── mocks/                     # Minimal ESP-IDF header mocks for host builds
+│   ├── mock_nrf24_hw.h/.c         # Stateful virtual nRF24L01+ hardware simulator
+│   └── test_nrf24l01.c            # Unit test suite (driver + protocol)
 ├── CMakeLists.txt
 ├── LICENSE
-├── README.md                      # Documentação principal (PT-BR)
-└── README.en.md                   # Documentação principal (English)
+├── README.md                      # Main documentation (English)
+└── README.pt-BR.md                # Main documentation (Português)
 ```
 
 ---
 
-## ⚙️ Modos de Operação
+## ⚙️ Operating Modes
 
-Selecione o papel da placa em `idf.py menuconfig → ESP32 Station (nRF24L01+) Configuration`:
+Select the board role in `idf.py menuconfig → ESP32 Station (nRF24L01+) Configuration`:
 
-| Modo (`Kconfig`) | Descrição | Caso de Uso |
+| Mode (`Kconfig`) | Description | Use Case |
 | :--- | :--- | :--- |
-| **`TX Interativo`** *(padrão)* | Lê comandos do teclado via UART0, transmite pacotes com Auto-ACK, mede latência (`P`) e executa scanner 2.4 GHz (`C`) | Controle remoto de robô/rover e diagnóstico de bancada |
-| **`TX Beacon Periódico`** | Envia pacotes `STATION_CMD_BEACON` em intervalo configurável e imprime taxa de entrega (%) | Teste de alcance, antena e estabilidade de enlace |
-| **`RX Monitor`** | Escuta o Pipe 0 continuamente, valida `magic` + `CRC-8`, detecta pacotes perdidos via `seq` e exibe telemetria | Segunda ESP32 atuando como receptor ou sniffer de validação |
+| **`TX Interactive`** *(default)* | Reads keyboard commands over UART0, transmits packets with Auto-ACK, measures RTT (`P`), and runs a 2.4 GHz channel scanner (`C`) | RC rover control & benchtop RF diagnostics |
+| **`TX Periodic Beacon`** | Periodically transmits `STATION_CMD_BEACON` frames and reports live delivery rate (%) | Range testing, antenna evaluation & link stability checks |
+| **`RX Monitor`** | Continuously listens on Pipe 0, validates `magic` + `CRC-8`, tracks dropped packets via `seq`, and logs decoded telemetry | Second ESP32 acting as receiver or packet sniffer |
 
 ---
 
-## 🚀 Como Compilar e Gravar
+## 🚀 Build & Flash Guide
 
-### Pré-requisitos
+### Prerequisites
 
-- **ESP-IDF v5.3 ou superior** instalado e configurado no ambiente (`idf.py` disponível no PATH).
+- **ESP-IDF v5.3 or newer** installed and configured in your environment (`idf.py` in `PATH`).
 
-### Passo a passo
+### Step-by-step
 
 ```bash
-# 1. Clone o repositório
+# 1. Clone the repository
 git clone https://github.com/Paludeto/esp32-station.git
 cd esp32-station
 
-# 2. Defina o alvo ESP32
+# 2. Set the target MCU
 idf.py set-target esp32
 
-# 3. (Opcional) Ajuste modo TX/RX, canal RF, pinos e potência
+# 3. (Optional) Configure TX/RX mode, RF channel, pins, and PA level
 idf.py menuconfig
 
-# 4. Compile o firmware
+# 4. Build the firmware
 idf.py build
 
-# 5. Grave na placa e abra o monitor serial (substitua COM3 ou /dev/ttyUSB0)
+# 5. Flash and open the serial monitor (replace COM3 or /dev/ttyUSB0)
 idf.py -p COM3 flash monitor
 ```
 
 > [!TIP]
-> O canal padrão é **2 (2402 MHz)** com endereço `00:00:00:00:01` para manter compatibilidade com receptores já configurados. Em ambientes com muitas redes Wi-Fi, mude `STATION_RF_CHANNEL` para um canal entre **76 e 125** (`2476–2525 MHz`) — use o comando `C` no console interativo para escolher o canal mais limpo!
+> The default channel is **2 (2402 MHz)** with address `00:00:00:00:01` for backwards compatibility with existing receivers. In noisy Wi-Fi environments, change `STATION_RF_CHANNEL` to a channel between **76 and 125** (`2476–2525 MHz`) — use the `C` command in the interactive console to find the quietest channel!
 
 ---
 
-## 🖥️ Console Interativo e Scanner RF
+## 🖥️ Interactive Console & RF Scanner
 
-No modo **TX Interativo**, conecte-se à porta serial (`115200 bps`) e utilize os comandos abaixo:
+In **TX Interactive** mode, connect to the serial monitor (`115200 bps`) and use these keys:
 
-| Tecla | Ação | Pacote / Comportamento |
+| Key | Action | Behavior / Packet Sent |
 | :---: | :--- | :--- |
-| `W` / `S` / `A` / `D` | Frente / Ré / Esquerda / Direita | Envia `STATION_CMD_*` com a velocidade atual |
-| `X` | Parar (`STOP`) | Envia `STATION_CMD_STOP` com `speed = 0` |
-| `+` / `-` | Aumentar / Diminuir velocidade | Ajusta `speed` (`0..255`) em passos de `25` |
-| `P` | Ping RF | Envia `STATION_CMD_PING` e mede RTT (TX + Auto-ACK) em µs |
-| `I` | Inspeção e estatísticas | Exibe dump de registradores, `OBSERVE_TX` e contadores |
-| `C` | **Scanner 2.4 GHz** | Varre canais `0..125` usando `RPD` e sugere o canal livre |
-| `H` ou `?` | Ajuda | Reimprime o menu de comandos |
+| `W` / `S` / `A` / `D` | Forward / Backward / Left / Right | Sends `STATION_CMD_*` with the current `speed` |
+| `X` | Stop (`STOP`) | Sends `STATION_CMD_STOP` with `speed = 0` |
+| `+` / `-` | Increase / Decrease speed | Adjusts `speed` (`0..255`) in steps of `25` |
+| `P` | RF Ping | Sends `STATION_CMD_PING` and measures TX + Auto-ACK RTT in µs |
+| `I` | Inspect registers & stats | Prints full register dump, `OBSERVE_TX`, and link counters |
+| `C` | **2.4 GHz RF Scanner** | Scans channels `0..125` via `RPD` and suggests the cleanest channel |
+| `H` or `?` | Help | Prints the command menu |
 
-### Exemplo de saída no Monitor Serial
+### Example Serial Monitor Output
 
 ```text
 I (312) STATION: Iniciando ESP32 Station (nRF24L01+)...
@@ -208,51 +208,51 @@ I (3125) STATION: PONG seq=1 | RTT=796 us | retries=0
 
 ---
 
-## 🧪 Testes Unitários (Host / Mock SPI)
+## 🧪 Unit Tests (Host / Mock SPI)
 
-O driver e o protocolo podem ser compilados e testados **diretamente no PC com GCC**, sem hardware físico, através de um simulador stateful do nRF24L01+ em [`test/`](test):
+Both the driver and protocol can be compiled and tested **directly on your PC with GCC**, without physical hardware, via the stateful nRF24L01+ simulator in [`test/`](test):
 
 ```bash
-# Via Make (Linux / macOS / MSYS2)
+# Using Make (Linux / macOS / MSYS2)
 make -C test
 
-# Ou diretamente com GCC (Windows PowerShell / Bash)
+# Or directly with GCC (Windows PowerShell / Bash)
 gcc -std=c11 -Wall -Wextra -Werror -Wpedantic \
     -Icomponents/nrf24l01/include -Imain -Itest/mocks -Itest \
     components/nrf24l01/src/nrf24l01.c test/mock_nrf24_hw.c test/test_nrf24l01.c \
     -o test/build/test_nrf24l01 && ./test/build/test_nrf24l01
 ```
 
-A suíte valida:
-- Inicialização/desinicialização, gerenciamento exclusivo de CSN via SPI HW e tempo `Tpd2stby`.
-- Detecção de desconexão SPI (`nrf24_is_connected` com MISO preso em `0x00`/`0xFF`).
-- Codificação de canal (`0..125`), taxa (`250k/1M/2M`), potência PA, CRC, largura de endereço e retransmissões.
-- Pipes RX (`P0–P1` com 5 bytes, `P2–P5` com 1 byte LSB) e restauração automática de `RX_ADDR_P0` nas trocas `TX ↔ RX`.
-- Transmissão `TX_DS`, tratamento de `MAX_RT` (com `FLUSH_TX`), timeout, recepção multi-byte, payloads dinâmicos (inclusive flush automático para largura > 32 bytes), ACK payloads e validação **CRC-8** do protocolo.
+The test suite verifies:
+- Init/deinit lifecycle, exclusive hardware SPI `CSN` management, and `Tpd2stby` settling time.
+- Disconnected SPI detection (`nrf24_is_connected` when `MISO` is stuck at `0x00` or `0xFF`).
+- RF channel bounds (`0..125`), data rate (`250k/1M/2M`), PA level, CRC, address width, and retry registers.
+- RX pipe addressing (`P0–P1` 5-byte vs `P2–P5` 1-byte LSB) and automatic `RX_ADDR_P0` restoration across `TX ↔ RX` switches.
+- `TX_DS` confirmation, `MAX_RT` recovery (`FLUSH_TX`), timeouts, multi-byte reception, dynamic payloads (including automatic `FLUSH_RX` on corrupt width > 32 bytes), ACK payloads, and protocol **CRC-8** integrity checks.
 
 ---
 
-## 📚 Documentação Técnica Detalhada
+## 📚 Detailed Technical Documentation
 
-| Documento | Conteúdo |
+| Document | Contents |
 | :--- | :--- |
-| **[docs/API.md](docs/API.md)** | Referência completa de tipos, enums, funções e exemplos de código TX/RX/ACK Payload |
-| **[docs/HARDWARE.md](docs/HARDWARE.md)** | Guia elétrico, desacoplamento, temporizações do datasheet e mapa de registradores (`0x00`–`0x1D`) |
-| **[docs/PROTOCOL.md](docs/PROTOCOL.md)** | Layout byte a byte de `station_packet_t`, tabela de comandos, CRC-8/SMBUS e diagrama de sequência ESB |
+| **[docs/API.md](docs/API.md)** | Complete reference of types, enums, functions, and C usage examples (TX, RX, ACK Payload) |
+| **[docs/HARDWARE.md](docs/HARDWARE.md)** | Electrical wiring guide, decoupling tips, datasheet timings, and register map (`0x00`–`0x1D`) |
+| **[docs/PROTOCOL.md](docs/PROTOCOL.md)** | Byte-by-byte layout of `station_packet_t`, command table, CRC-8/SMBUS, and ESB sequence diagram |
 
 ---
 
-## 🔧 Solução de Problemas (Troubleshooting)
+## 🔧 Troubleshooting
 
-| Sintoma | Causa Provável | Solução |
+| Symptom | Likely Cause | Fix |
 | :--- | :--- | :--- |
-| `Modulo nRF24L01+ NAO detectado no barramento SPI!` | Fios `MISO`/`MOSI` trocados, `CSN`/`SCK` soltos ou módulo sem alimentação | Revise a tabela de pinagem e meça `3.3 V` diretamente nos pinos do módulo |
-| `MAX_RT atingido (sem ACK do receptor)` | Receptor desligado, canal diferente, endereço diferente ou `Auto-ACK` incompatível | Confirme canal (`RF_CH`), taxa (`RF_SETUP`), tamanho do payload (`8 B`) e endereço `00:00:00:00:01` nos dois lados |
-| Alcance muito curto ou quedas intermitentes | Interferência Wi-Fi no canal 2 ou ruído na alimentação 3.3 V | Adicione capacitor `10 µF + 100 nF` no VCC/GND e use o scanner (`C`) para migrar para um canal `>= 76` |
-| Módulo PA+LNA não transmite à curta distância | Saturação do receptor em `0 dBm` com antenas coladas | Afaste os módulos (> 1 m) ou reduza a potência para `NRF24_PA_MIN` / `NRF24_PA_LOW` em testes de bancada |
+| `Modulo nRF24L01+ NAO detectado no barramento SPI!` | Swapped `MISO`/`MOSI`, loose `CSN`/`SCK`, or unpowered module | Double-check pinout and measure `3.3 V` directly across module pins |
+| `MAX_RT atingido (sem ACK do receptor)` | Receiver powered off, mismatched channel/address, or mismatched `Auto-ACK` | Verify matching channel (`RF_CH`), air rate (`RF_SETUP`), payload size (`8 B`), and address `00:00:00:00:01` on both ends |
+| Very short range or intermittent drops | Wi-Fi interference on channel 2 or noisy 3.3 V rail | Add `10 µF + 100 nF` decoupling caps on `VCC`/`GND` and run the scanner (`C`) to pick a clean channel `>= 76` |
+| PA+LNA module fails at close range | Receiver front-end saturation at `0 dBm` when antennas are inches apart | Separate modules (> 1 m) or lower output power to `NRF24_PA_MIN` / `NRF24_PA_LOW` during bench tests |
 
 ---
 
-## 📄 Licença
+## 📄 License
 
-Distribuído sob a licença **MIT**. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.

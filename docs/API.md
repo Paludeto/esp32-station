@@ -1,5 +1,7 @@
 # 📘 Referência da API — Componente `nrf24l01`
 
+> **🇧🇷 Português** · [🇺🇸 English](en/API.md)
+
 Esta documentação detalha a interface pública do componente [`components/nrf24l01`](../components/nrf24l01/include/nrf24l01.h) para ESP-IDF.
 
 ---

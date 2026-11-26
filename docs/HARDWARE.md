@@ -1,5 +1,7 @@
 # 🔧 Guia de Hardware e Registradores — nRF24L01+ + ESP32
 
+> **🇧🇷 Português** · [🇺🇸 English](en/HARDWARE.md)
+
 ---
 
 ## 1. Esquema de Ligação

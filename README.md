@@ -1,6 +1,10 @@
 # 📡 ESP32 Station — Driver e Estação RF nRF24L01+
 
 <p align="center">
+  <strong>🇧🇷 Português</strong> · <a href="README.en.md">🇺🇸 English</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/ESP--IDF-v5.3%2B-E7352C?style=for-the-badge&logo=espressif&logoColor=white" alt="ESP-IDF v5.3+">
   <img src="https://img.shields.io/badge/MCU-ESP32-1E88E5?style=for-the-badge&logo=espressif&logoColor=white" alt="ESP32">
   <img src="https://img.shields.io/badge/RF-nRF24L01%2B%202.4GHz-00897B?style=for-the-badge" alt="nRF24L01+ 2.4GHz">
@@ -107,9 +111,10 @@ esp32-station/
 │       ├── include/nrf24l01.h     # API pública, enums, structs e mapa de registradores
 │       └── src/nrf24l01.c         # Implementação do driver SPI/RF
 ├── docs/
-│   ├── API.md                     # Referência completa da API do driver
-│   ├── HARDWARE.md                # Esquema elétrico, timing SPI e tabela de registradores
-│   └── PROTOCOL.md                # Especificação do protocolo binário e fluxo ESB
+│   ├── API.md                     # Referência completa da API do driver (PT-BR)
+│   ├── HARDWARE.md                # Esquema elétrico, timing SPI e registradores (PT-BR)
+│   ├── PROTOCOL.md                # Especificação do protocolo binário e fluxo ESB (PT-BR)
+│   └── en/                        # Documentação completa em inglês (API, HARDWARE, PROTOCOL)
 ├── main/
 │   ├── CMakeLists.txt
 │   ├── Kconfig.projbuild          # Menu de configuração (idf.py menuconfig)
@@ -122,7 +127,8 @@ esp32-station/
 │   └── test_nrf24l01.c            # Suíte de testes unitários (driver + protocolo)
 ├── CMakeLists.txt
 ├── LICENSE
-└── README.md
+├── README.md                      # Documentação principal (PT-BR)
+└── README.en.md                   # Documentação principal (English)
 ```
 
 ---

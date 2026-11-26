@@ -1,5 +1,7 @@
 # 📦 Especificação do Protocolo — `station_protocol.h`
 
+> **🇧🇷 Português** · [🇺🇸 English](en/PROTOCOL.md)
+
 O firmware utiliza um quadro binário compacto de **8 bytes** ([`main/station_protocol.h`](../main/station_protocol.h)) sobre o protocolo **Enhanced ShockBurst** do nRF24L01+.
 
 ---
